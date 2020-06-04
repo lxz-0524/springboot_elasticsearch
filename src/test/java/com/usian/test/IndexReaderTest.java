@@ -7,12 +7,15 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.common.text.Text;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 import org.elasticsearch.search.sort.SortOrder;
 import org.hibernate.validator.constraints.br.TituloEleitoral;
 import org.junit.After;
@@ -24,6 +27,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.io.IOException;
+import java.util.Map;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @SpringBootTest(classes = {ESApp.class})
@@ -151,6 +155,22 @@ public class IndexReaderTest {
         searchResponse = restHighLevelClient.search(searchRequest,RequestOptions.DEFAULT);
     }
 
+
+    //高亮查询
+    @Test
+    public void testHighLightQuery() throws IOException {
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        searchSourceBuilder.query(QueryBuilders.matchQuery("name","开发"));
+        //设置高亮
+        HighlightBuilder highlightBuilder = new HighlightBuilder();
+        highlightBuilder.preTags("<font color='red'>");
+        highlightBuilder.postTags("</font>");
+        highlightBuilder.fields().add(new HighlightBuilder.Field("name"));
+        searchSourceBuilder.highlighter(highlightBuilder);
+        searchRequest.source(searchSourceBuilder);
+        searchResponse = restHighLevelClient.search(searchRequest,RequestOptions.DEFAULT);
+    }
+
     @After
     public void testDisplayDoc(){
         //搜索匹配结果
@@ -166,6 +186,14 @@ public class IndexReaderTest {
             //源文档内容
             String sourceAsString = hit.getSourceAsString();
             System.out.println("源文档内容："+sourceAsString);
+
+            //遍历高亮设置内容
+            Map<String, HighlightField> highlightFields = hit.getHighlightFields();
+            if (highlightFields!=null){
+                HighlightField name = highlightFields.get("name");
+                Text[] fragments = name.getFragments();
+                System.out.println("高亮字段：" + fragments[0].toString());
+            }
         }
     }
 }
